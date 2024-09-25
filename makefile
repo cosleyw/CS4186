@@ -11,5 +11,5 @@ mycc: mycc.c
 	${CC} $< -o $@ ${CFLAGS}	
 
 
-.PHONY: all
+.PHONY: all clean
 

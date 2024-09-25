@@ -13,11 +13,16 @@ make
 # Rough Plan
 I intend to do a "one-pass" architecture to start with, and then add an optimizer after I get that working.
 
-
 # Todo
-- ~~lexing~~
+- lexing
+  - might merge into the parsing stage...
 - parsing
-  - LR(1)?
+  - ~~LR(1)~~
+    - Current formalisms of LR(k) parser generators hurt my feelings, I feel that there is an elegant implementation that involves canonacalized graphs, but I don't have the time to find it.
+  - recursive descent -- started
+    - Maybe it works?
 - syntactic analysis
+  - Ast
+    - Somewhat done...
 - codegen
 
