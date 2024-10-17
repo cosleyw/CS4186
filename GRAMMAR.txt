@@ -1,4 +1,13 @@
 
+//Implemented elsewhere
+Identifier -> identifier
+IntegerConstant -> integer_constant
+FloatingConstant -> floating_constant
+CharacterConstant -> character_constant
+StringLiteral -> string_literal
+TypedefName -> typedef_name
+
+
 ISO c89 39
 PrimaryExpression -> Identifier
 PrimaryExpression -> IntegerConstant
@@ -18,22 +27,22 @@ PostfixExpression -> PostfixExpression --
 PostfixExpression -> PrimaryExpression
 
 ArgumentExpressionList -> AssignmentExpression
-ArgumentExpressionList -> , AssignmentExpression
+ArgumentExpressionList -> AssignmentExpression , ArgumentExpressionList
 
 ISO c89 43
 UnaryExpression -> PostfixExpression
 UnaryExpression -> ++ UnaryExpression
 UnaryExpression -> -- UnaryExpression
-UnaryExpression -> UnaryOperator UnaryExpression
+
+UnaryExpression -> & UnaryExpression
+UnaryExpression -> * UnaryExpression
+UnaryExpression -> + UnaryExpression
+UnaryExpression -> - UnaryExpression
+UnaryExpression -> ~ UnaryExpression
+UnaryExpression -> ! UnaryExpression
+
 UnaryExpression -> sizeof UnaryExpression
 UnaryExpression -> sizeof ( TypeName )
-
-UnaryOperator -> &
-UnaryOperator -> *
-UnaryOperator -> +
-UnaryOperator -> -
-UnaryOperator -> ~
-UnaryOperator -> !
 
 ISO c89 45
 CastExpression -> UnaryExpression
@@ -89,23 +98,21 @@ ConditionalExpression -> LogicalOrExpression ? Expression : ConditionalExpressio
 
 ISO c89 53
 AssignmentExpression -> ConditionalExpression
-AssignmentExpression -> UnaryExpression AssignmentOperator AssignmentExpression
-
-AssignmentOperator -> =
-AssignmentOperator -> *=
-AssignmentOperator -> /=
-AssignmentOperator -> %=
-AssignmentOperator -> +=
-AssignmentOperator -> -=
-AssignmentOperator -> <<=
-AssignmentOperator -> >>=
-AssignmentOperator -> &=
-AssignmentOperator -> ^=
-AssignmentOperator -> |=
+AssignmentExpression -> UnaryExpression = AssignmentExpression
+AssignmentExpression -> UnaryExpression *= AssignmentExpression
+AssignmentExpression -> UnaryExpression /= AssignmentExpression
+AssignmentExpression -> UnaryExpression %= AssignmentExpression
+AssignmentExpression -> UnaryExpression += AssignmentExpression
+AssignmentExpression -> UnaryExpression -= AssignmentExpression
+AssignmentExpression -> UnaryExpression <<= AssignmentExpression
+AssignmentExpression -> UnaryExpression >>= AssignmentExpression
+AssignmentExpression -> UnaryExpression &= AssignmentExpression
+AssignmentExpression -> UnaryExpression ^=  AssignmentExpression
+AssignmentExpression -> UnaryExpression |= AssignmentExpression
 
 ISO c89 54
 
-Expression -> Expression , AssignmentExpression
+Expression -> AssignmentExpression , Expression
 Expression -> AssignmentExpression
 
 
@@ -146,6 +153,7 @@ TypeSpecifier -> StructOrUnionSpecifier
 TypeSpecifier -> EnumSpecifier
 TypeSpecifier -> TypedefName
 
+
 ISO c89 59
 StructOrUnionSpecifier -> StructOrUnion Identifier { StructDeclarationList }
 StructOrUnionSpecifier -> StructOrUnion { StructDeclarationList }
@@ -165,7 +173,7 @@ SpecifierQualifierList -> TypeQualifier SpecifierQualifierList
 SpecifierQualifierList -> TypeQualifier
 
 StructDeclaratorList -> StructDeclarator
-StructDeclaratorList -> StructDeclaratorList , StructDeclarator
+StructDeclaratorList -> StructDeclarator , StructDeclaratorList
 
 StructDeclarator -> Declarator
 StructDeclarator -> Declarator : ConditionalExpression
@@ -175,10 +183,9 @@ ISO c89 61
 EnumSpecifier -> enum Identifier { EnumeratorList }
 EnumSpecifier -> enum { EnumeratorList }
 EnumSpecifier -> enum Identifier
-EnumSpecifier -> enum
 
 EnumeratorList -> Enumerator
-EnumeratorList -> EnumeratorList , Enumerator
+EnumeratorList -> Enumerator , EnumeratorList
 
 Enumerator -> Identifier
 Enumerator -> Identifier = ConditionalExpression
@@ -196,7 +203,7 @@ DirectDeclarator -> DirectDeclarator [ ]
 DirectDeclarator -> DirectDeclarator ( ParameterTypeList )
 DirectDeclarator -> DirectDeclarator ( IdentifierList )
 DirectDeclarator -> DirectDeclarator ( )
-DirectDeclarator -> ( Declaration )
+DirectDeclarator -> ( Declarator )
 DirectDeclarator -> Identifier
 
 Pointer -> *
@@ -205,20 +212,20 @@ Pointer -> * TypeQualifierList Pointer
 Pointer -> * Pointer
 
 TypeQualifierList -> TypeQualifier
-TypeQualifierList -> TypeQualifierList TypeQualifier
+TypeQualifierList -> TypeQualifier TypeQualifierList 
 
 ParameterTypeList -> ParameterList
 ParameterTypeList -> ParameterList , ...
 
 ParameterList -> ParameterDeclaration
-ParameterList -> ParameterList , ParameterDeclaration
+ParameterList -> ParameterDeclaration , ParameterList
 
 ParameterDeclaration -> DeclarationSpecifiers Declarator
 ParameterDeclaration -> DeclarationSpecifiers AbstractDeclarator
 ParameterDeclaration -> DeclarationSpecifiers
 
 IdentifierList -> Identifier
-IdentifierList -> IdentifierList , Identifier
+IdentifierList -> Identifier , IdentifierList
 
 ISO c89 69
 TypeName -> SpecifierQualifierList AbstractDeclarator
@@ -265,10 +272,10 @@ CompoundStatement -> { DeclarationList }
 CompoundStatement -> { }
 
 DeclarationList -> Declaration
-DeclarationList -> DeclarationList Declaration
+DeclarationList -> Declaration DeclarationList
 
 StatementList -> Statement
-StatementList -> StatementList Statement
+StatementList -> Statement StatementList
 
 ISO c89 76
 ExpressionStatement -> Expression ;
