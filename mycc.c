@@ -203,128 +203,80 @@ char* TakeStringLiteral_(char **str){
 
 
 
+enum TypeSpecifier{
+	VOID = 1 << 8,
+	CHAR = 1 << 9,
+	SHORT = 1 << 10,
+	INT = 1 << 11,
+	LONG = 1 << 12,
+	FLOAT = 1 << 13,
+	DOUBLE = 1 << 14,
+	SIGNED = 1 << 15,
+	UNSIGNED = 1 << 16,
 
+	CONST = 1 << 17,
+	VOLATILE = 1 << 18,
 
+	EXTERN = 1 << 19,
+	STATIC = 1 << 20,
+	AUTO = 1 << 21,
+	REGISTER = 1 << 22,
+	TYPEDEF = 1 << 23
+};
 
 enum NodeType{
-	SYMBOL,
-	FUNC_INIT,
-	FUNC_APP,
-
-	TYPEDEF_NAME,
-	INT_CONST,
-	FLOAT_CONST,
-	STRING_CONST,
-	CHAR_CONST,
-	IDENTIFIER,
-	ENUM_CONST,
-
-	ENUM,
-	STRUCT,
-	UNION,
-	BITFIELD,
-
-	AUTO,
-	REGISTER,
-	TYPEDEF,
-	EXTERN,
-	STATIC,
-
-	PARAMETER,
-	VAR_ARG,
-
-	VOLATILE,
-	CONST,
-
-	TYPENAME, 
-	INT,
-	UINT,
-	FLOAT,
-	DOUBLE,
-	VOID,
-	CHAR,
-	POINTER,
-	FUNCTION,
-	ARRAY,
-
-	DECLARATOR,
-	DECLARATION,
-
-	ASSIGN,
-	MUL_ASSIGN,
-	DIV_ASSIGN,
-	MOD_ASSIGN,
-	ADD_ASSIGN,
-	SUB_ASSIGN,
-	LSHIFT_ASSIGN,
-	RSHIFT_ASSIGN,
-	BITAND_ASSIGN,
-	BITOR_ASSIGN,
-	XOR_ASSIGN,
+	CONTINUE,
+	BREAK,
+	RETURN,
+	GOTO,
+	FOR,
+	WHILE,
+	DOWHILE,
 	
-
-	COMMA,
-	ADD,
-	SUB,
-	MUL,
-	DIV,
-	MOD,
-	LT,
-	GT,
-	LTE,
-	GTE,
-	EQ,
-	NEQ,
-	DEREF,
-	AND,
-	BITAND,
-	BITOR,
-	XOR,
-	OR,
-	LSHIFT,
-	RSHIFT,
+	SWITCH,
 	TERNARY,
-	UPLUS,
-	UMINUS,
-	CAST,
-	INCRAMENT,
-	DECRAMENT,
-	PREINCRAMENT,
-	PREDECRAMENT,
-	CALL,
-	ADDRESS,
-	BITNOT,
-	NOT,
-	SIZEOF,
-	INDEX,
-	MEMBER,
-	DEREF_MEMBER,
-
 	DEFAULT,
 	CASE,
-	GOTO,
-	BREAK,
-	CONTINUE,
-	RETURN,
-	DOWHILE,
-	WHILE,
-	FOR,
-	SWITCH,
+	
 	LABEL,
 	BLOCK,
 
+	DECLARATOR,
+	TYPEDEF_NAME,
+
+	DEFSYM,
+	DEFTYPE,
+	TYPEREF,
+	ENUM,
+	UNION,
+	STRUCT,
+	BITFIELD,
+	ARRAY,
+	FUNCTION,
+	VAR_ARG,
+
+	CHAR_CONST,
+	STRING_CONST,
+	ENUM_CONST,
+	FLOAT_CONST,
+	INT_CONST,
+
+	POINTER,
+
 	LIST,
-	NONE
+	FUNCAPP,
+	FUNCDEF,
+	SYMBOL
 };
 
 char *node_type_strings[] = {
-"SYMBOL", "FUNC_INIT", "FUNC_APP", "TYPEDEF_NAME","INT_CONST","FLOAT_CONST","STRING_CONST","CHAR_CONST","IDENTIFIER","ENUM_CONST","ENUM","STRUCT","UNION","BITFIELD","AUTO","REGISTER","TYPEDEF","EXTERN","STATIC","PARAMETER","VAR_ARG","VOLATILE","CONST","TYPENAME","INT","UINT","FLOAT","DOUBLE","VOID","CHAR","POINTER","FUNCTION","ARRAY","DECLARATOR","DECLARATION","ASSIGN","MUL_ASSIGN","DIV_ASSIGN","MOD_ASSIGN","ADD_ASSIGN","SUB_ASSIGN","LSHIFT_ASSIGN","RSHIFT_ASSIGN","BITAND_ASSIGN","BITOR_ASSIGN","XOR_ASSIGN","COMMA","ADD","SUB","MUL","DIV","MOD","LT","GT","LTE","GTE","EQ","NEQ","DEREF","AND","BITAND","BITOR","XOR","OR","LSHIFT","RSHIFT","TERNARY","UPLUS","UMINUS","CAST","INCRAMENT","DECRAMENT","PREINCRAMENT","PREDECRAMENT","CALL","ADDRESS","BITNOT","NOT","SIZEOF","INDEX","MEMBER","DEREF_MEMBER","DEFAULT","CASE","GOTO","BREAK","CONTINUE","RETURN","DOWHILE","WHILE","FOR","SWITCH","LABEL","BLOCK","LIST","NONE"
+	"CONTINUE","BREAK","RETURN","GOTO","FOR","WHILE","DOWHILE","SWITCH","TERNARY","DEFAULT","CASE","LABEL","BLOCK","DECLARATOR","TYPEDEF_NAME","DEFSYM","DEFTYPE","TYPEREF","ENUM","UNION","STRUCT","BITFIELD","ARRAY","FUNCTION","VAR_ARG","CHAR_CONST","STRING_CONST","ENUM_CONST","FLOAT_CONST","INT_CONST","POINTER","LIST","FUNCAPP","FUNCDEF","SYMBOL"
 };
 
 struct Node{
 	enum NodeType type;
 	void *item;
-	size_t nodes;
+	size_t count, nodes;
 	struct Node **node;
 };
 
@@ -341,6 +293,7 @@ struct Node *Node(enum NodeType type, size_t size, struct Node** node){
 	nd->type = type;
 	nd->nodes = size;
 	nd->item = NULL;
+	nd->count = 0;
 	nd->node = malloc(sizeof(struct Node*) * size);
 	for(i = 0; i < size; i++){
 		nd->node[i] = node[i];
@@ -349,16 +302,35 @@ struct Node *Node(enum NodeType type, size_t size, struct Node** node){
 	return nd;
 }
 
-void NodeDealloc(struct Node* node){
+void NodeRefCount(struct Node* node){
 	size_t i;
+	node->count++;
+	if(node->count == 1){
+		for(i = 0; i < node->nodes; i++)
+			if(node->node[i])
+				NodeRefCount(node->node[i]);
+	}
+
+}
+
+void NodeDealloc_(struct Node* node){
+	size_t i;
+	if(--node->count)
+		return;
 	for(i = 0; i < node->nodes; i++)
 		if(node->node[i])
-			NodeDealloc(node->node[i]);
+			NodeDealloc_(node->node[i]);
 	if(node->item != NULL)
 		free(node->item);
 	free(node->node);
 	free(node);
 }
+
+void NodeDealloc(struct Node* node){
+	NodeRefCount(node);
+	NodeDealloc_(node);
+}
+
 
 void FreeNodes(struct Node **nd){
 	while(*nd){
@@ -375,7 +347,36 @@ void print_node(struct Node* node){
 		return;
 	}
 
-	printf("{type: \"%s\", nodes: [", node_type_strings[node->type]);
+	if(node->type == LIST){
+		struct Node *cur = node;
+
+		int start = 1;
+		printf("[");
+		while(cur != NULL){
+			if(!start)
+				printf(",");
+			start = 0;
+			print_node(cur->node[0]);
+			cur = cur->node[1];	
+		}
+
+		printf("]");
+		return;	
+	}
+
+	if(node->type >= sizeof(node_type_strings)/sizeof(node_type_strings[0]))
+		printf("{type: %d", node->type);
+	else
+		printf("{type: \"%s\"", node_type_strings[node->type]);
+
+
+	if(node->type == SYMBOL){
+		struct Symbol *sym = node->item;
+		printf(", name: \"%.*s\"}", sym->end - sym->start, sym->start);
+		return;
+	}
+
+	printf(", nodes: [");
 
 	for(i = 0; i < node->nodes; i++){
 		print_node(node->node[i]);
@@ -384,14 +385,7 @@ void print_node(struct Node* node){
 		}
 	}
 
-	printf("]");
-
-	if(node->type == SYMBOL){
-		struct Symbol *sym = node->item;
-		printf(", name: \"%.*s\"", sym->end - sym->start, sym->start);
-	}
-
-	printf("}");
+	printf("]}");
 }
 
 
@@ -457,8 +451,41 @@ struct Symbol get_sym(char *(*fn)(char **), char *str){
 
 
 
+struct Node *SetType(struct Node *node, enum NodeType type){
+	node->type = type;
+	return node;
+}
+struct Node *SetItem(struct Node *node, void *item){
+	node->item = item;
+	return node;
+}
+struct Node *SetNode(struct Node *node, size_t ind, struct Node *nd){
+	node->node[ind] = nd;
+	return node;
+}
 
 
+
+
+struct Node *List(struct Node *a, struct Node *b){
+	struct Node *node[] = {a, b};
+	return Node(LIST, 2, node);
+}
+
+struct Node *SymDef(struct Node *sym, struct Node *type, struct Node *node){
+	struct Node *nd[] = {sym, type, node};
+	return Node(DEFSYM, 3, nd);
+}
+
+struct Node *TypeDef(struct Node *sym, struct Node *node){
+	struct Node *nd[] = {sym, node};
+	return Node(DEFTYPE, 2, nd);
+}
+
+struct Node *FuncApp(struct Node *function, struct Node *arguments){
+	struct Node *node[] = {function, arguments};
+	return Node(FUNCAPP, 2, node);
+}
 
 
 
@@ -471,37 +498,152 @@ struct Node* Symbol(struct Symbol sym){
 	return node;
 }
 
-struct Node *Struct(struct Symbol sym){
-	struct Node *node = Node(STRUCT, 0, NULL);
-	node->item = malloc(sizeof(struct Symbol));
-	*((struct Symbol*)node->item) = sym;
-	return node;
+
+
+
+struct Node *Specifier(struct Node *specifier){
+	enum TypeSpecifier type = 0;
+	struct Node *base = NULL;
+	struct Node *cur = specifier;
+
+	if(specifier == NULL || specifier->type != LIST){
+		printf("Type: Expected specifier list.");
+		return Symbol(sym("int"));
+	}
+
+
+	while(cur != NULL){
+		struct Node *node = cur->node[0];
+		switch(node->type){
+			case SYMBOL: case TYPEREF: case TYPEDEF: case STRUCT: case UNION: case ENUM:
+				if(base != NULL){
+					printf("Unexpected type specifier: ");
+					print_node(node);
+				}
+				base = node;
+				break;
+			default:
+				type |= node->type;
+		}
+
+		cur = cur->node[1];
+	}
+
+	if(!(!base ^ !(type & 0xff00))){
+		printf("Unexpected type specifier");
+		printf("\n\n");
+	}
+
+	if(base == NULL){
+		type = type & ~SIGNED;
+		switch(type & 0xff00){ //TODO implement more types and use qualifiers/storage class
+			case VOID:
+				base = Symbol(sym("void"));
+				break;
+			case INT:
+			case SHORT:
+			case INT | SHORT:
+			case LONG:
+			case INT | LONG:
+			case SHORT | LONG:
+			case INT | SHORT | LONG:
+				base = Symbol(sym("int"));
+				break;
+			case INT | UNSIGNED:
+			case SHORT | UNSIGNED:
+			case INT | SHORT | UNSIGNED:
+			case LONG | UNSIGNED:
+			case INT | LONG | UNSIGNED:
+			case SHORT | LONG | UNSIGNED:
+			case INT | SHORT | LONG | UNSIGNED:
+				base = Symbol(sym("unsigned int"));
+				break;
+			case FLOAT:
+			case DOUBLE:
+				base = Symbol(sym("double"));
+				break;
+			default:
+				printf("unkown type specifier");
+				base = Symbol(sym("int"));
+		}
+	}else{
+		struct Node *new_base = Node(base->type, base->nodes, base->node);
+		memset(base->node, sizeof(struct Node*) * base->nodes, 0);
+		base = new_base;
+	}	
+
+	NodeDealloc(specifier);
+	return base;
 }
 
-struct Node *Type(struct Node *specifier, struct Node *declarator){
-	//TODO
-	
+struct Node *Type(struct Node *base, struct Node *declarator){
+	if(declarator == NULL)
+		return base;
+
+	switch(declarator->type){
+		case LIST:{
+			struct Node *cur = declarator;
+			while(cur != NULL){
+				base = Type(base, cur->node[0]);
+				cur->node[0] = NULL;
+				cur = cur->node[1];
+			}
+
+			NodeDealloc(declarator);
+			return base;
+		} case POINTER:{
+			struct Node *cur = declarator;
+			while(cur != NULL){
+				struct Node *node = cur->node[0];
+				cur->node[0] = base;
+				base = cur;
+				cur = node;
+			}
+
+			return base;
+		}case FUNCTION: case ARRAY: {
+			struct Node *cur = declarator;
+			struct Node *node = cur->node[0];
+
+			cur->node[0] = base;
+			base = cur;
+			return Type(base, node);
+		}case SYMBOL: {
+			return SymDef(declarator, base, NULL);
+		}case DECLARATOR: {
+			base = Type(base, declarator->node[0]);
+			base->node[2] = declarator->node[1];
+			return base;
+		}
+		default:
+			printf("unexpected: ");
+			print_node(declarator);
+			printf("\n\n");
+	}
+
 	return NULL;
 }
 
-struct Node *List(struct Node *a, struct Node *b){
-	struct Node *node[] = {a, b};
-	return Node(LIST, 2, node);
+struct Node *TypeList(struct Node *base, struct Node *declarator){
+	struct Node* cur = declarator;
+	if(declarator->type != LIST){
+		printf("Expected list\n");
+		return NULL;
+	}
+
+	while(cur != NULL){
+		cur->node[0] = Type(base, cur->node[0]);
+		cur = cur->node[1];
+	}
+
+	return declarator;
 }
 
-struct Node *FuncInit(struct Node *type, struct Node *arguments, struct Node *body){
-	struct Node *node[] = {type, arguments, body};
-	return Node(FUNC_INIT, 3, node);
+struct Node *Block(struct Node *block){
+
 }
 
-struct Node *TypeInit(struct Node *type, struct Node *node){
-	//TODO
-}
 
-struct Node *FuncApp(struct Node *function, struct Node *arguments){
-	struct Node *node[] = {function, arguments};
-	return Node(FUNC_APP, 2, node);
-}
 
 
 
@@ -511,13 +653,54 @@ struct Node *FuncApp(struct Node *function, struct Node *arguments){
 #include"parser.c"
 
 
+
+
+
+
+
+/* IO/other */
+
+char *ReadFile(char *path){
+	FILE *fp = fopen(path, "rb");
+	if(fseek(fp, 0, SEEK_END)){
+		return NULL;
+	}
+
+	size_t end = ftell(fp);
+
+	rewind(fp);
+	char *buf = malloc(end + 1);
+	if(buf == NULL){
+		fclose(fp);
+		return NULL;
+	}
+
+	if(fread(buf, 1, end, fp) != end){
+		fclose(fp);
+		free(buf);
+		return NULL;
+	}
+
+	fclose(fp);
+	buf[end] = 0;
+	return buf;
+}
+
+
 int main(int argc, char **argv){
-	char *str = "int **(*)(int, int)";
+	char *str = ReadFile(argv[1]);
 
 	char *cur = str;
 	struct Node *ast = NULL;
-	if(TakeTypeName(&cur, &ast)){
-		print_node(ast);
+	if(TakeTranslationUnit(&cur, &ast)){
+		TakeWhiteSpace(&cur);
+		if(*cur == 0){
+			printf("success:\n");
+			print_node(ast);
+		}
 	}
+
+	NodeDealloc(ast);
+	free(str);
 }
 
