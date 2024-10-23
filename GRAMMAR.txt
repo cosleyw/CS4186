@@ -149,18 +149,20 @@ TypeSpecifier -> float
 TypeSpecifier -> double
 TypeSpecifier -> signed
 TypeSpecifier -> unsigned
-TypeSpecifier -> StructOrUnionSpecifier
+TypeSpecifier -> StructSpecifier
+TypeSpecifier -> UnionSpecifier
 TypeSpecifier -> EnumSpecifier
 TypeSpecifier -> TypedefName
 
 
 ISO c89 59
-StructOrUnionSpecifier -> StructOrUnion Identifier { StructDeclarationList }
-StructOrUnionSpecifier -> StructOrUnion { StructDeclarationList }
-StructOrUnionSpecifier -> StructOrUnion Identifier
+StructSpecifier -> struct Identifier { StructDeclarationList }
+StructSpecifier -> struct { StructDeclarationList }
+StructSpecifier -> struct Identifier
 
-StructOrUnion -> struct
-StructOrUnion -> union
+UnionSpecifier -> union Identifier { StructDeclarationList }
+UnionSpecifier -> union { StructDeclarationList }
+UnionSpecifier -> union Identifier
 
 StructDeclarationList -> StructDeclaration
 StructDeclarationList -> StructDeclaration StructDeclarationList
@@ -206,10 +208,10 @@ DirectDeclarator -> DirectDeclarator ( )
 DirectDeclarator -> ( Declarator )
 DirectDeclarator -> Identifier
 
-Pointer -> *
 Pointer -> * TypeQualifierList
-Pointer -> * TypeQualifierList Pointer
-Pointer -> * Pointer
+Pointer -> *
+Pointer -> Pointer * TypeQualifierList
+Pointer -> Pointer *
 
 TypeQualifierList -> TypeQualifier
 TypeQualifierList -> TypeQualifier TypeQualifierList 
