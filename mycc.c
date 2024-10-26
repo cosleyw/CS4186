@@ -305,7 +305,7 @@ struct Node *Node(enum NodeType type, size_t size, struct Node** node){
 void NodeResetMark(struct Node *node){
 	size_t i;
 	if(node->count != 0){
-		node->count = 0;	
+		node->count = 0;
 		for(i = 0; i < node->nodes; i++)
 			if(node->node[i])
 				NodeResetMark(node->node[i]);
@@ -317,7 +317,7 @@ void NodeRemoveCycles(struct Node* node){
 	node->count = 1;
 	for(i = 0; i < node->nodes; i++){
 		if(node->node[i]){
-			if(node->node[i]->count)
+			if(node->node[i]->count == 1)
 				node->node[i] = NULL;
 			else
 				NodeRemoveCycles(node->node[i]);
@@ -337,6 +337,8 @@ void NodeDealloc_(struct Node* node){
 }
 
 void NodeDealloc(struct Node* node){
+	if(node == NULL)
+		return;
 	NodeResetMark(node);
 	NodeRemoveCycles(node);
 	NodeDealloc_(node);
@@ -526,7 +528,6 @@ struct Node *FuncApp(struct Node *function, struct Node *arguments){
 
 
 
-
 struct Node* Symbol(struct Symbol sym){
 	struct Node *node = Node(SYMBOL, 0, NULL);
 	node->item = malloc(sizeof(struct Symbol));
@@ -534,8 +535,17 @@ struct Node* Symbol(struct Symbol sym){
 	return node;
 }
 
+struct Node *Struct(struct Node *decl){
+	return Node(STRUCT, 1, &decl);
+}
 
+struct Node *Union(struct Node *decl){
+	return Node(UNION, 1, &decl);
+}
 
+struct Node *Enum(struct Node *decl){
+	return Node(ENUM, 1, &decl);
+}
 
 struct Node *Specifier(struct Node *specifier){
 	enum TypeSpecifier type = 0;
@@ -555,7 +565,10 @@ struct Node *Specifier(struct Node *specifier){
 				if(base != NULL){
 					printf("Unexpected type specifier: ");
 					print_node(node);
+					break;
 				}
+
+				cur->node[0] = NULL;
 				base = node;
 				break;
 			default:
@@ -602,11 +615,7 @@ struct Node *Specifier(struct Node *specifier){
 				printf("unkown type specifier");
 				base = Symbol(sym("int"));
 		}
-	}else{
-		struct Node *new_base = Node(base->type, base->nodes, base->node);
-		memset(base->node, sizeof(struct Node*) * base->nodes, 0);
-		base = new_base;
-	}	
+	}
 
 	NodeDealloc(specifier);
 	return base;

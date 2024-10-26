@@ -71,7 +71,7 @@ char *TakeTranslationUnit(char **str, struct Node **ast) {
   if (TakeExternalDeclaration(str, node + 0)) {
     char *start = *str;
     if (TakeTranslationUnit(str, node + 1)) {
-      *ast = Concat(node[0], node[1]);
+      *ast = List(node[0], node[1]);
       return start_;
     }
     *str = start;
@@ -336,7 +336,7 @@ char *TakeStructSpecifier(char **str, struct Node **ast) {
       char *start = *str;
       if (TakeString(str, "{") && TakeStructDeclarationList(str, node + 1) &&
           TakeString(str, "}")) {
-        *ast = TypeDef(node[0], Node(STRUCT, 1, node + 1));
+        *ast = TypeDef(node[0], Struct(Flatten(node[1])));
         return start_;
       }
       *str = start;
@@ -350,7 +350,7 @@ char *TakeStructSpecifier(char **str, struct Node **ast) {
     FreeNodes(node + 0);
     if (TakeString(str, "{") && TakeStructDeclarationList(str, node + 0) &&
         TakeString(str, "}")) {
-      *ast = Node(STRUCT, 1, node);
+      *ast = Struct(Flatten(node[0]));
       return start_;
     }
   }
@@ -2108,7 +2108,7 @@ char *TakeUnionSpecifier(char **str, struct Node **ast) {
       char *start = *str;
       if (TakeString(str, "{") && TakeStructDeclarationList(str, node + 1) &&
           TakeString(str, "}")) {
-        *ast = TypeDef(node[0], Node(UNION, 1, node + 1));
+        *ast = TypeDef(node[0], Union(Flatten(node[1])));
         return start_;
       }
       *str = start;
@@ -2122,7 +2122,7 @@ char *TakeUnionSpecifier(char **str, struct Node **ast) {
     FreeNodes(node + 0);
     if (TakeString(str, "{") && TakeStructDeclarationList(str, node + 0) &&
         TakeString(str, "}")) {
-      *ast = Node(UNION, 1, node);
+      *ast = Union(Flatten(node[0]));
       return start_;
     }
   }
@@ -2141,7 +2141,7 @@ char *TakeEnumSpecifier(char **str, struct Node **ast) {
       char *start = *str;
       if (TakeString(str, "{") && TakeEnumeratorList(str, node + 1) &&
           TakeString(str, "}")) {
-        *ast = TypeDef(node[0], Node(ENUM, 1, node + 1));
+        *ast = TypeDef(node[0], Enum(node[1]));
         return start_;
       }
       *str = start;
@@ -2155,7 +2155,7 @@ char *TakeEnumSpecifier(char **str, struct Node **ast) {
     FreeNodes(node + 0);
     if (TakeString(str, "{") && TakeEnumeratorList(str, node + 0) &&
         TakeString(str, "}")) {
-      *ast = Node(ENUM, 1, node);
+      *ast = Enum(node[0]);
       return start_;
     }
   }
