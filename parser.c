@@ -71,7 +71,7 @@ char *TakeTranslationUnit(char **str, struct Node **ast) {
   if (TakeExternalDeclaration(str, node + 0)) {
     char *start = *str;
     if (TakeTranslationUnit(str, node + 1)) {
-      *ast = List(node[0], node[1]);
+      *ast = Concat(node[0], node[1]);
       return start_;
     }
     *str = start;
@@ -574,7 +574,8 @@ char *TakePointer_Rec(char **str, struct Node **ast, struct Node *prev) {
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakePointer(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -728,7 +729,8 @@ char *TakeDirectDeclarator_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeDirectDeclarator(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -1012,7 +1014,8 @@ char *TakeRelationalExpression_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeRelationalExpression(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -1079,7 +1082,8 @@ char *TakeShiftExpression_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeShiftExpression(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -1127,7 +1131,8 @@ char *TakeAdditiveExpression_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeAdditiveExpression(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -1212,7 +1217,8 @@ char *TakeMultiplicativeExpression_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeMultiplicativeExpression(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -1403,7 +1409,8 @@ char *TakeDirectAbstractDeclarator_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeDirectAbstractDeclarator(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -1779,7 +1786,8 @@ char *TakePostfixExpression_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakePostfixExpression(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -2351,7 +2359,8 @@ char *TakeInitializerList_Rec(char **str, struct Node **ast,
   }
   *str = start_;
   FreeNodes(node + 1);
-  return NULL;
+  *ast = node[0];
+  return *str;
 }
 char *TakeInitializerList(char **str, struct Node **ast) {
   struct Node *node[3];
@@ -2384,26 +2393,26 @@ char *TakeCompoundStatement(char **str, struct Node **ast) {
     if (TakeDeclarationList(str, node + 0)) {
       char *start = *str;
       if (TakeStatementList(str, node + 1) && TakeString(str, "}")) {
-        *ast = Node(BLOCK, 2, node);
+        *ast = Block(Concat(Flatten(node[0]), node[1]));
         return start_;
       }
       *str = start;
       FreeNodes(node + 1);
       if (TakeString(str, "}")) {
-        *ast = Node(BLOCK, 2, node);
+        *ast = Block(Flatten(node[0]));
         return start_;
       }
     }
     *str = start;
     FreeNodes(node + 0);
     if (TakeStatementList(str, node + 0) && TakeString(str, "}")) {
-      *ast = Node(BLOCK, 1, node);
+      *ast = Block(node[0]);
       return start_;
     }
     *str = start;
     FreeNodes(node + 0);
     if (TakeString(str, "}")) {
-      *ast = Node(BLOCK, 0, NULL);
+      *ast = Block(NULL);
       return start_;
     }
   }

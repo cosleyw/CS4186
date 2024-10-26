@@ -302,21 +302,31 @@ struct Node *Node(enum NodeType type, size_t size, struct Node** node){
 	return nd;
 }
 
-void NodeRefCount(struct Node* node){
+void NodeResetMark(struct Node *node){
 	size_t i;
-	node->count++;
-	if(node->count == 1){
+	if(node->count != 0){
+		node->count = 0;	
 		for(i = 0; i < node->nodes; i++)
 			if(node->node[i])
-				NodeRefCount(node->node[i]);
+				NodeResetMark(node->node[i]);
 	}
+}
 
+void NodeRemoveCycles(struct Node* node){
+	size_t i;
+	node->count = 1;
+	for(i = 0; i < node->nodes; i++){
+		if(node->node[i]){
+			if(node->node[i]->count)
+				node->node[i] = NULL;
+			else
+				NodeRemoveCycles(node->node[i]);
+		}
+	}
 }
 
 void NodeDealloc_(struct Node* node){
 	size_t i;
-	if(--node->count)
-		return;
 	for(i = 0; i < node->nodes; i++)
 		if(node->node[i])
 			NodeDealloc_(node->node[i]);
@@ -327,7 +337,8 @@ void NodeDealloc_(struct Node* node){
 }
 
 void NodeDealloc(struct Node* node){
-	NodeRefCount(node);
+	NodeResetMark(node);
+	NodeRemoveCycles(node);
 	NodeDealloc_(node);
 }
 
@@ -472,6 +483,31 @@ struct Node *List(struct Node *a, struct Node *b){
 	return Node(LIST, 2, node);
 }
 
+struct Node *Concat(struct Node *a, struct Node *b){
+	struct Node *cur = a;
+	if(b == NULL)
+		return a;
+	while(cur->node[1] != NULL)
+		cur = cur->node[1];
+	cur->node[1] = b;
+	return a;
+}
+struct Node *Flatten(struct Node *a){
+	struct Node *ret;
+	if(a == NULL)
+		return NULL;
+
+	if(a->node[0]->type == LIST)
+		ret = Concat(a->node[0], Flatten(a->node[1]));
+	else
+		ret = List(a->node[0], Flatten(a->node[1]));
+
+	a->node[0] = NULL;
+	a->node[1] = NULL;
+	NodeDealloc(a);
+	return ret;
+}
+
 struct Node *SymDef(struct Node *sym, struct Node *type, struct Node *node){
 	struct Node *nd[] = {sym, type, node};
 	return Node(DEFSYM, 3, nd);
@@ -581,7 +617,7 @@ struct Node *Type(struct Node *base, struct Node *declarator){
 		return base;
 
 	switch(declarator->type){
-		case LIST:{
+		case LIST: {
 			struct Node *cur = declarator;
 			while(cur != NULL){
 				base = Type(base, cur->node[0]);
@@ -613,6 +649,9 @@ struct Node *Type(struct Node *base, struct Node *declarator){
 		}case DECLARATOR: {
 			base = Type(base, declarator->node[0]);
 			base->node[2] = declarator->node[1];
+			
+			declarator->node[0] = declarator->node[1] = NULL;
+			NodeDealloc(declarator);
 			return base;
 		}
 		default:
@@ -640,7 +679,7 @@ struct Node *TypeList(struct Node *base, struct Node *declarator){
 }
 
 struct Node *Block(struct Node *block){
-
+	return block;
 }
 
 
@@ -685,6 +724,8 @@ char *ReadFile(char *path){
 	buf[end] = 0;
 	return buf;
 }
+
+
 
 
 int main(int argc, char **argv){
