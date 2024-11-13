@@ -693,6 +693,7 @@ struct Node *TypeList(struct Node *base, struct Node *declarator){
 }
 
 struct Node *Block(struct Node *block){
+	block->type = BLOCK;
 	return block;
 }
 
@@ -802,6 +803,7 @@ struct Node *graphify(struct Node **env, struct Node *ast){
 
 			break;
 		}case LIST: 
+		case BLOCK: 
 		case FUNCAPP:
 			ast->node[0] = graphify(env, ast->node[0]);
 			ast->node[1] = graphify(env, ast->node[1]);
@@ -934,20 +936,21 @@ void gen_expr(struct Node **ref, struct Node *node){
 
 				printf("test eax, eax\n");
 				printf("jne .else%d\n", label_id);
-				gen_block(ref, cur->node[0]);
+				gen_expr(ref, cur->node[0]);
 				cur = cur->node[1];
 
 				if(cur->node[0] != NULL){
 					printf("jmp .end%d\n", label_id);
 					printf(".else%d:\n", label_id);
-					gen_block(ref, cur->node[0]);
+					gen_expr(ref, cur->node[0]);
 					printf(".end%d:\n", label_id);
+					label_id++;
 					break;
 				}
 
 				printf(".else%d:\n", label_id);
-
 				label_id++;
+
 				break;
 			}
 
@@ -959,7 +962,7 @@ void gen_expr(struct Node **ref, struct Node *node){
 				cur = cur->node[1];
 				printf("test eax, eax\n");
 				printf("jne .end%d\n", label_id);
-				gen_block(ref, cur->node[0]);
+				gen_expr(ref, cur->node[0]);
 				printf("jmp .start%d\n", label_id);
 				printf(".end%d:\n", label_id);
 
@@ -992,8 +995,12 @@ void gen_expr(struct Node **ref, struct Node *node){
 			gen_expr(ref, node->node[0]);
 			printf("mov rsp, rbp\npop rbp\nret\n");
 			break;
+		case BLOCK:
+			gen_block(ref, node);
+			break;
 		default:
 			printf("unexpected expression: %d\n\n", node->type);
+			print_node(node);
 			printf("\n");
 	}
 }
