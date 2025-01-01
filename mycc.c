@@ -272,11 +272,11 @@ enum NodeType{
 	SYMBOL,
 
 	MEMORY,
-	REGISTER
+	/*REGISTER*/
 };
 
 char *node_type_strings[] = {
-	"CONTINUE","BREAK","RETURN","GOTO","FOR","WHILE","DOWHILE","SWITCH","TERNARY","DEFAULT","CASE","LABEL","BLOCK","DECLARATOR","TYPEDEF_NAME","DEFSYM","DEFTYPE","TYPEREF","TYPEINIT","ENUM","UNION","STRUCT","BITFIELD","ARRAY","FUNCTION","VAR_ARG","CHAR_CONST","STRING_CONST","ENUM_CONST","FLOAT_CONST","INT_CONST","POINTER","LIST","FUNCAPP","FUNCDEF","SYMBOL","MEMORY","REGISTER"
+	"CONTINUE","BREAK","RETURN","GOTO","FOR","WHILE","DOWHILE","SWITCH","TERNARY","DEFAULT","CASE","LABEL","BLOCK","DECLARATOR","TYPEDEF_NAME","DEFSYM","DEFTYPE","TYPEREF","TYPEINIT","ENUM","UNION","STRUCT","BITFIELD","ARRAY","FUNCTION","VAR_ARG","CHAR_CONST","STRING_CONST","ENUM_CONST","FLOAT_CONST","INT_CONST","POINTER","LIST","FUNCAPP","FUNCDEF","SYMBOL","MEMORY",/*"REGISTER"*/
 };
 
 struct Node{
@@ -905,7 +905,7 @@ struct Node *graphify(struct Node **env, struct Node *ast){
 
 				cur->node[2] = Node(MEMORY, 0, NULL);
 				cur->node[2]->item = malloc(sizeof(int));
-				((int*)cur->node[1]->item)[0] = n++;
+				((int*)cur->node[2]->item)[0] = n++;
 
 				node = node->node[1];
 			}
@@ -993,8 +993,8 @@ void gen_expr(struct Node **ref, struct Node *node);
 void gen_block(struct Node **ref, struct Node *node);
 
 void gen_ref(struct Node **ref, struct Node *node){
-	if(node->node[1] && node->node[1]->type == MEMORY){
-		int ind = ((int*)node->node[1]->item)[0];	
+	if(node->node[2] && node->node[2]->type == MEMORY){
+		int ind = ((int*)node->node[2]->item)[0];	
 
 		printf("rbp + 8*(2 + %d)", ind); 
 		return;
