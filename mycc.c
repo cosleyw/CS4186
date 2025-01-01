@@ -271,11 +271,12 @@ enum NodeType{
 	FUNCDEF,
 	SYMBOL,
 
-	ARG
+	MEMORY,
+	REGISTER
 };
 
 char *node_type_strings[] = {
-	"CONTINUE","BREAK","RETURN","GOTO","FOR","WHILE","DOWHILE","SWITCH","TERNARY","DEFAULT","CASE","LABEL","BLOCK","DECLARATOR","TYPEDEF_NAME","DEFSYM","DEFTYPE","TYPEREF","TYPEINIT","ENUM","UNION","STRUCT","BITFIELD","ARRAY","FUNCTION","VAR_ARG","CHAR_CONST","STRING_CONST","ENUM_CONST","FLOAT_CONST","INT_CONST","POINTER","LIST","FUNCAPP","FUNCDEF","SYMBOL","ARG"
+	"CONTINUE","BREAK","RETURN","GOTO","FOR","WHILE","DOWHILE","SWITCH","TERNARY","DEFAULT","CASE","LABEL","BLOCK","DECLARATOR","TYPEDEF_NAME","DEFSYM","DEFTYPE","TYPEREF","TYPEINIT","ENUM","UNION","STRUCT","BITFIELD","ARRAY","FUNCTION","VAR_ARG","CHAR_CONST","STRING_CONST","ENUM_CONST","FLOAT_CONST","INT_CONST","POINTER","LIST","FUNCAPP","FUNCDEF","SYMBOL","MEMORY","REGISTER"
 };
 
 struct Node{
@@ -307,13 +308,13 @@ struct Node *Node(enum NodeType type, size_t size, struct Node** node){
 	return nd;
 }
 
-void NodeResetMark(struct Node *node){
+void NodeSetMark(struct Node *node, int mark){
 	size_t i;
-	if(node->count != 0){
-		node->count = 0;
+	if(node->count != mark){
+		node->count = mark;
 		for(i = 0; i < node->nodes; i++)
 			if(node->node[i])
-				NodeResetMark(node->node[i]);
+				NodeSetMark(node->node[i], mark);
 	}
 }
 
@@ -344,7 +345,8 @@ void NodeDealloc_(struct Node* node){
 void NodeDealloc(struct Node* node){
 	if(node == NULL)
 		return;
-	NodeResetMark(node);
+	NodeSetMark(node, -1);
+	NodeSetMark(node, 0);
 	NodeRemoveCycles(node);
 	NodeDealloc_(node);
 }
@@ -466,14 +468,15 @@ struct Node *Flatten(struct Node *a){
 	if(a == NULL)
 		return NULL;
 
-	if(a->node[0]->type == LIST)
+	if(a->node[0]->type == LIST){
 		ret = Concat(a->node[0], Flatten(a->node[1]));
-	else
-		ret = List(a->node[0], Flatten(a->node[1]));
+		a->node[0] = a->node[1] = NULL;
+		NodeDealloc(a);
+	}else{
+		a->node[1] = Flatten(a->node[1]);
+		ret = a;
+	}
 
-	a->node[0] = NULL;
-	a->node[1] = NULL;
-	NodeDealloc(a);
 	return ret;
 }
 
@@ -493,8 +496,8 @@ struct Node *FuncApp(struct Node *function, struct Node *arguments){
 
 
 struct Node* Symbol(struct Symbol sym){
-	struct Node *nd[2] = {NULL, NULL};
-	struct Node *node = Node(SYMBOL, 2, nd);
+	struct Node *nd[3] = {NULL, NULL, NULL};
+	struct Node *node = Node(SYMBOL, 3, nd);
 	node->item = malloc(sizeof(struct Symbol));
 	*((struct Symbol*)node->item) = sym;
 	return node;
@@ -714,6 +717,31 @@ struct Node *Block(struct Node *block){
 
 /* analysis/typechecking */
 
+/* TODO verify assumptions */
+void verify(struct Node* node){
+}
+
+enum Builtin{
+	MY_VOID,
+	MY_INT,
+	MY_LONG,
+	MY_UINT,
+	MY_ULONG,
+	MY_FLOAT,
+	MY_DOUBLE,
+	MY_UCHAR,
+	MY_CHAR,
+
+	MY_ADD,
+	MY_SUB,
+	MY_MUL,
+	MY_DIV,
+	MY_TERNARY,
+	MY_WHILE,
+	MY_ASSIGN
+};
+
+
 int SymCompare(struct Symbol s1, struct Symbol s2){
 	if(s1.start - s1.end == s2.start - s2.end){
 		if(strncmp(s1.start, s2.start, s2.end - s2.start) == 0)
@@ -733,25 +761,11 @@ struct Node* SymLookup(struct Node *env, enum NodeType type, struct Symbol sym){
 	return SymLookup(env->node[1], type, sym);
 }
 
-int has_descendant(struct Node* node, struct Node *nd){
-	size_t i = 0;
-
-	if(node == nd)
-		return 1;
-
-	if(node->count == 1)
-		return 0;
-	node->count = 1;
-
-	for(i = 0; i < node->nodes; i++)
-		if(has_descendant(node->node[i], nd))
-			return 1;
-
-	return 0;
-}
-
 int graph_eq(struct Node* n1, struct Node* n2){
 	size_t i = 0;
+
+	if(n1 == NULL || n2 == NULL)
+		return 0;
 
 	if(n1->count != n2->count)
 		return 0;
@@ -771,6 +785,102 @@ int graph_eq(struct Node* n1, struct Node* n2){
 	return 0;
 	
 }
+
+struct Node *TypeOf(struct Node *nd){
+	struct Node *cur;
+	if(nd == NULL)
+		return NULL;
+
+	switch(nd->type){
+		case SYMBOL:
+			return nd->node[0];
+		case FUNCAPP:
+			cur = TypeOf(nd->node[0]);
+			if(cur == NULL)
+				return NULL;
+			return cur->node[0];
+		case TYPEINIT:
+			return nd->node[0];
+	}
+}
+
+void eval(struct Node **ref, void *res, struct Node *nd){
+	switch(nd->type){
+		case TYPEINIT:
+			if(nd->node[0] == ref[MY_INT]){
+				struct Symbol *sym = nd->node[1]->item;
+				*(int*)res = strtol(sym->start, NULL, 0);
+			}
+		case FUNCAPP:
+		case SYMBOL:
+			/* TODO */
+			break;
+	}
+}
+
+size_t SizeOf(struct Node **ref, struct Node *nd){
+	struct Node *cur;
+	int len;
+
+	switch(nd->type){
+		case FUNCTION:
+		case POINTER:
+			return 8; /* function pointer */
+		case ENUM:
+			return 4; /* integer */
+		case ARRAY:
+			if(TypeOf(nd->node[1]) != ref[MY_INT])
+				printf("unexpected type");
+
+			eval(ref, &len, nd->node[1]);
+			return SizeOf(ref, nd->node[0]) * len;
+		case STRUCT:
+		case UNION:
+			/* TODO */
+		case SYMBOL:
+			if(nd == ref[MY_INT])
+				return 4;
+			/* TODO */
+		default:
+			return SizeOf(ref, TypeOf(nd));	
+	}
+}
+
+int type_check(struct Node *nd){
+	switch(nd->type){
+		case SYMBOL:
+			return type_check(nd->node[1]) && graph_eq(TypeOf(nd->node[0]), TypeOf(nd->node[1]));
+		case FUNCAPP: {
+			struct Node *args = TypeOf(nd->node[0]), *cur = nd->node[1];
+
+			if(args == NULL) /* symbols with no type */
+				return -1;
+
+			if(args->type != FUNCTION)
+				return 0;
+
+			args = args->node[1];
+			if(ListLen(args) != ListLen(cur))
+				return 0;
+
+			while(args){
+				if(!graph_eq(args->node[0], TypeOf(cur->node[0])))
+					return 0;
+
+				args = args->node[1];
+				cur = cur->node[1];
+			}
+
+			return 1;
+		} case TYPEINIT:
+			/* TODO arrays? */
+			return 1;
+			
+
+	}
+}
+
+
 
 
 
@@ -793,8 +903,8 @@ struct Node *graphify(struct Node **env, struct Node *ast){
 				struct Node *cur = node->node[0];
 				*env = List(cur, *env);
 
-				cur->node[1] = Node(ARG, 0, NULL);
-				cur->node[1]->item = malloc(sizeof(int));
+				cur->node[2] = Node(MEMORY, 0, NULL);
+				cur->node[2]->item = malloc(sizeof(int));
 				((int*)cur->node[1]->item)[0] = n++;
 
 				node = node->node[1];
@@ -805,12 +915,12 @@ struct Node *graphify(struct Node **env, struct Node *ast){
 		}case LIST: 
 		case BLOCK: 
 		case FUNCAPP:
+		case ARRAY:
 			ast->node[0] = graphify(env, ast->node[0]);
 			ast->node[1] = graphify(env, ast->node[1]);
 			break;
 		case RETURN:
 		case POINTER:
-		case ARRAY:
 			ast->node[0] = graphify(env, ast->node[0]);
 			break;
 		case TYPEINIT:
@@ -848,31 +958,6 @@ struct Node *graphify(struct Node **env, struct Node *ast){
 
 
 
-/* TODO verify assumptions */
-void verify(struct Node* node){
-}
-
-enum Builtin{
-	MY_VOID,
-	MY_INT,
-	MY_LONG,
-	MY_UINT,
-	MY_ULONG,
-	MY_FLOAT,
-	MY_DOUBLE,
-	MY_UCHAR,
-	MY_CHAR,
-
-	MY_ADD,
-	MY_SUB,
-	MY_MUL,
-	MY_DIV,
-	MY_TERNARY,
-	MY_WHILE,
-	MY_ASSIGN
-};
-
-
 void rev_map(struct Node *node, struct Node **v, void (*fn)(struct Node **, struct Node *)){
 	if(node == NULL)
 		return;
@@ -908,7 +993,7 @@ void gen_expr(struct Node **ref, struct Node *node);
 void gen_block(struct Node **ref, struct Node *node);
 
 void gen_ref(struct Node **ref, struct Node *node){
-	if(node->node[1] && node->node[1]->type == ARG){
+	if(node->node[1] && node->node[1]->type == MEMORY){
 		int ind = ((int*)node->node[1]->item)[0];	
 
 		printf("rbp + 8*(2 + %d)", ind); 
@@ -1025,11 +1110,11 @@ void gen_function(struct Node **ref, struct Node *node){
 	printf("mov rsp, rbp\npop rbp\nret\n");
 }
 
-
-
 void gen_def(struct Node **ref, struct Node *node){
 	struct Node *type = node->node[0];
 	struct Node *init = node->node[1];
+
+	size_t size;
 
 	switch(type->type){
 		case FUNCTION:
@@ -1041,24 +1126,20 @@ void gen_def(struct Node **ref, struct Node *node){
 			print_symbol(node->item);
 			printf("_end:\n");
 			break;
+		default:
 		case ARRAY:
 		case POINTER:
 		case STRUCT:
 		case UNION:
 		case ENUM:
-			break;
-		default:
-			/*TODO more types*/
-			if(type == ref[MY_INT]){
-				printf("jmp "); print_symbol(node->item); printf("+4\n");
-				print_symbol(node->item); printf(":\n");
-				printf("dd 0\n");
+			size = SizeOf(ref, node);
+			printf("jmp "); print_symbol(node->item); printf("+%d\n", size);
+			print_symbol(node->item); printf(": "); printf("times %d db 0\n", size);
+			if(init != NULL){
 				gen_expr(ref, init);
-
 				printf("mov [");
 				print_symbol(node->item);
 				printf("], eax\n");
-				return;
 			}
 	}
 }
@@ -1084,6 +1165,8 @@ void code_gen(struct Node *node, struct Node *env){
 		cur = cur->node[1];
 
 	}
+
+	free(ref);
 }
 
 
@@ -1163,11 +1246,18 @@ int main(int argc, char **argv){
 			env = List(Symbol(sym("_Assign")), env);
 
 			ast = Flatten(ast);
+
+			/*
 			printf("\n\n");
 			print_node(ast);
 			printf("\n\n");
-			graphify(&env, ast);
+			*/
 
+			graphify(&env, ast);
+			NodeSetMark(ast, -1);
+			NodeSetMark(env, -1);
+			NodeSetMark(ast, 0);
+			NodeSetMark(env, 0);
 
 			printf("%%include\"my_crt.S\"\n");
 			printf("GLOBAL _start\n");
@@ -1176,11 +1266,15 @@ int main(int argc, char **argv){
 			printf("MOV eax, 1\n");
 			printf("PUSH rax\n");
 			printf("CALL main\n");
+			printf("MOV edi, eax\n");
+			printf("CALL exit\n");
 
+			/*dealloc env*/
+			ast = List(ast, env);
+			NodeDealloc(ast);
 		}
 	}
 
-	NodeDealloc(ast);
 	free(str);
 }
 

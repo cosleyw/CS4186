@@ -5,8 +5,9 @@ IntegerConstant -> integer_constant
 FloatingConstant -> floating_constant
 CharacterConstant -> character_constant
 StringLiteral -> string_literal
-TypedefName -> typedef_name
 
+//NOTE: this makes the grammar context dependent
+TypedefName -> typedef_name
 
 ISO c89 39
 PrimaryExpression -> Identifier
