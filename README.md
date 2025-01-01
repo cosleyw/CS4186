@@ -42,6 +42,11 @@ i'm using `muslc` so i can statically link against it with one big RWX section.
   - recursive descent
 - syntactic analysis
   - Ast
-    - Working on
+    - mostly good
+  - Types
+    - started code, not checked.
 - codegen
+   - for loops
+   - other operators
+   - optimizer
 
